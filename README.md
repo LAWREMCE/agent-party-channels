@@ -86,3 +86,24 @@ await pollMail({
 ## 数据和运行边界
 
 所有示例配置均从进程环境读取。插件交付消息时会在内存中接触原文；由宿主控制持久化、日志和保留时间。对重复投递，使用渠道、账号和消息 ID 作为幂等键。此包仅提供消息传输，宿主自行决定是否回复、如何授权以及如何处理消息。离线测试检查基础配置和中继确认顺序；部署后的账号权限与实际送达需要分别实测。
+
+## 可直接运行的完整示例
+
+从仓库根目录执行下列命令。首次使用先运行 `npm ci`，随后可以直接体验离线收件：
+
+~~~sh
+node examples/offline.mjs
+node examples/offline.mjs
+~~~
+
+第一次会看到“首次写入成功”，第二次会看到“已识别上次运行的记录”。两次运行都验证同一 ID 只保存一次。示例收件箱实现见 [inbox.mjs](examples/inbox.mjs)，使用本地文件保存内容，以渠道、账号和消息 ID 区分记录。
+
+真实渠道按需运行。环境变量可由进程注入；使用 Node.js 20.6 或以上版本时，也可在仓库根目录新建已被 Git 忽略的 `.env` 文件，每行填写一个 `变量名=值`，然后运行表中命令。
+
+| 示例 | 所需变量 | 命令和预期结果 |
+| --- | --- | --- |
+| [飞书话题回复](examples/feishu.mjs) | FEISHU_APP_ID、FEISHU_APP_SECRET、FEISHU_BOT_OPEN_ID、FEISHU_CHAT_IDS、FEISHU_SENDER_IDS。后两项支持英文逗号分隔 | `node --env-file=.env examples/feishu.mjs` 保持长连接。允许的用户在指定群 @ 机器人后，首次收件会回复“消息已存入收件箱。”按 Ctrl+C 退出。 |
+| [短信与微信中继](examples/relay.mjs) | RELAY_URL、RELAY_READ_TOKEN | `node --env-file=.env examples/relay.mjs` 消费一页并打印已确认条数，然后退出。成功确认会让中继删除对应记录，请用测试中继首次试跑。 |
+| [邮件归档](examples/mail.mjs) | MAIL_HOST、MAIL_USER、MAIL_PASSWORD，可选 MAIL_PORT（默认 995） | `node --env-file=.env examples/mail.mjs` 最多保存 20 封新邮件后退出。再次运行会跳过已归档的邮件。 |
+
+示例把飞书和中继消息保存为 JSON，把邮件保存为原始 MIME 字节。两者都以哈希值作为文件名，内容以明文保存在 `.runtime/example-inbox/`。请使用仅当前用户可访问、支持硬链接的本地目录。飞书示例按首次入库触发回复；若回复发送失败，消息仍已入库，重复事件会跳过回复。
